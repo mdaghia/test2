@@ -104,6 +104,15 @@ export const elaborazioniAPI = {
   scaricaOutput:     (id) => api.get(`/elaborazioni/${id}/output`, { responseType: 'blob' }),
 };
 
+// ── Report ────────────────────────────────────────────────────────────────
+export const reportAPI = {
+  riepilogo:         (anno) => api.get('/report/riepilogo', { params: { anno } }),
+  versamentiMensili: (anno) => api.get('/report/versamenti-mensili', { params: { anno } }),
+  estrattoConto:     (contribuenteId, anno) => api.get('/report/estratto-conto', { params: { contribuenteId, anno } }),
+  libroRuoli:        (params) => api.get('/report/libro-ruoli', { params }),
+  export:            (params) => api.get('/report/export', { params, responseType: 'arraybuffer' }),
+};
+
 // ── RAG – Documenti normativi ─────────────────────────────────────────────
 export const ragAPI = {
   list:   (params) => api.get('/rag', { params }),

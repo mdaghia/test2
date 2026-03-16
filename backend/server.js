@@ -28,6 +28,8 @@ const tariffeTariRoutes = require('./routes/tariffeTari');
 const utenzeTariRoutes = require('./routes/utenzeTari');
 const dichiarazioniTariRoutes = require('./routes/dichiarazioniTari');
 const versamenti_tariRoutes = require('./routes/versamenti_tari');
+// Routes – Reportistica
+const reportRoutes = require('./routes/report');
 // Routes – AI / RAG
 const ragRoutes  = require('./routes/rag');
 const chatRoutes = require('./routes/chat');
@@ -65,6 +67,8 @@ api.use('/tari/tariffe', tariffeTariRoutes);
 api.use('/tari/utenze', utenzeTariRoutes);
 api.use('/tari/dichiarazioni', dichiarazioniTariRoutes);
 api.use('/tari/versamenti', versamenti_tariRoutes);
+// Reportistica
+api.use('/report', reportRoutes);
 // AI / RAG
 api.use('/rag', ragRoutes);
 api.use('/chat', chatRoutes);
