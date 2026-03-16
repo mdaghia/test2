@@ -123,10 +123,133 @@ function applicaRiduzioniTari(importo, riduzioni = []) {
   };
 }
 
+/**
+ * Calcola TARI per una singola riga (utenza) partendo dalla tariffa DB
+ * @param {Object} riga     - riga della dichiarazione (o utenza + tariffa inline)
+ * @param {Object} tariffa  - documento TariffaTARI dal DB
+ * @returns {Object} dettaglio calcolo con importoCalcolato
+ */
+function calcolaRigaTARI(riga, tariffa) {
+  const { superficie, componentiNucleo = 1, mesiOccupazione = 12, riduzioni = [], tipo } = riga;
+
+  let risultato;
+  if (tipo === 'domestica') {
+    risultato = calcolaTariDomestica({
+      superficie,
+      componenti:    componentiNucleo,
+      tariffaFissa:  tariffa.tariffaFissa,
+      tariffaVariabile: tariffa.tariffaVariabile,
+      coeffKa:       tariffa.Ka,
+      coeffKb:       tariffa.Kb,
+    });
+  } else {
+    risultato = calcolaTariNonDomestica({
+      superficie,
+      tariffaFissa:  tariffa.tariffaFissa,
+      tariffaVariabile: tariffa.tariffaVariabile,
+      coeffKc:       tariffa.Kc,
+      coeffKd:       tariffa.Kd,
+    });
+  }
+
+  // Ragguaglio ai mesi di effettiva occupazione
+  const fattoreMesi = mesiOccupazione / 12;
+  const importoProRata = Math.round(risultato.totale * fattoreMesi * 100) / 100;
+
+  // Applica riduzioni
+  const ridCalc = applicaRiduzioniTari(importoProRata, riduzioni);
+
+  return {
+    quotaFissa:         Math.round(risultato.quotaFissa * fattoreMesi * 100) / 100,
+    quotaVariabile:     Math.round(risultato.quotaVariabile * fattoreMesi * 100) / 100,
+    importoLordo:       importoProRata,
+    riduzioniApplicate: ridCalc.dettaglioRiduzioni,
+    totaleRiduzioni:    ridCalc.totalRiduzioni,
+    importoCalcolato:   ridCalc.importoRidotto,
+    // snapshot tariffa
+    Ka: tariffa.Ka, Kb: tariffa.Kb,
+    Kc: tariffa.Kc, Kd: tariffa.Kd,
+    tariffaFissa:     tariffa.tariffaFissa,
+    tariffaVariabile: tariffa.tariffaVariabile,
+  };
+}
+
+/**
+ * Calcola TARI completo per una dichiarazione
+ * @param {Object} dichiarazione - documento DichiarazioneTARI con righe populate
+ * @param {string} comune
+ * @param {number} anno
+ */
+async function calcolaDichiarazioneTARI(dichiarazione, comune, anno) {
+  const TariffaTARI = require('../models/TariffaTARI');
+  const logger = require('../utils/logger');
+
+  const righeCalcolate = [];
+  let totaleAnno = 0;
+
+  for (const riga of dichiarazione.righe) {
+    const utenza = riga.utenza;
+    const tipo = utenza?.tipo || riga.tipo;
+    const categoriaTARI = utenza?.categoriaTARI || riga.categoriaTARI;
+
+    const tariffa = await TariffaTARI.findOne({ anno, comune, tipo, categoria: categoriaTARI });
+
+    if (!tariffa) {
+      logger.warn(`Tariffa TARI non trovata: anno=${anno} comune=${comune} tipo=${tipo} cat=${categoriaTARI}`);
+      righeCalcolate.push({
+        ...riga.toObject?.() || riga,
+        importoCalcolato: 0,
+        errore: 'Tariffa non configurata',
+      });
+      continue;
+    }
+
+    const calc = calcolaRigaTARI({
+      superficie:        utenza?.superficie || riga.superficie,
+      componentiNucleo:  utenza?.componentiNucleo || riga.componentiNucleo,
+      mesiOccupazione:   utenza?.mesiOccupazione || riga.mesiOccupazione || 12,
+      riduzioni:         utenza?.riduzioni || riga.riduzioni || [],
+      tipo,
+    }, tariffa);
+
+    totaleAnno += calc.importoCalcolato;
+    righeCalcolate.push({
+      ...riga.toObject?.() || riga,
+      tariffaApplicata: tariffa._id,
+      tipo, categoriaTARI,
+      superficie:       utenza?.superficie || riga.superficie,
+      componentiNucleo: utenza?.componentiNucleo || riga.componentiNucleo,
+      mesiOccupazione:  utenza?.mesiOccupazione || riga.mesiOccupazione || 12,
+      ...calc,
+    });
+  }
+
+  totaleAnno = Math.ceil(totaleAnno);  // arrotonda all'euro superiore
+
+  // Rate secondo L.147/2013 art.1 c.688
+  const anno_ = dichiarazione.anno || anno;
+  const importoPrimaRata   = Math.floor(totaleAnno * 0.40);  // 40% – 30/04
+  const importoSecondaRata = Math.floor(totaleAnno * 0.30);  // 30% – 30/06
+  const importoSaldo       = totaleAnno - importoPrimaRata - importoSecondaRata; // restante – 30/11
+
+  return {
+    righe:            righeCalcolate,
+    totaleAnno,
+    importoPrimaRata,
+    scadenzaPrimaRata:   new Date(`${anno_}-04-30`),
+    importoSecondaRata,
+    scadenzaSecondaRata: new Date(`${anno_}-06-30`),
+    importoSaldo,
+    scadenzaSaldo:       new Date(`${anno_}-11-30`),
+  };
+}
+
 module.exports = {
   calcolaTariDomestica,
   calcolaTariNonDomestica,
   applicaRiduzioniTari,
+  calcolaRigaTARI,
+  calcolaDichiarazioneTARI,
   CATEGORIE_DOMESTICHE,
   CATEGORIE_NON_DOMESTICHE,
 };

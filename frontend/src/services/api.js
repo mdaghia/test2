@@ -104,6 +104,48 @@ export const elaborazioniAPI = {
   scaricaOutput:     (id) => api.get(`/elaborazioni/${id}/output`, { responseType: 'blob' }),
 };
 
+// ── TARI – Tariffe ────────────────────────────────────────────────────────
+export const tariffeTariAPI = {
+  list:     (params) => api.get('/tari/tariffe', { params }),
+  getOne:   (id) => api.get(`/tari/tariffe/${id}`),
+  create:   (data) => api.post('/tari/tariffe', data),
+  update:   (id, data) => api.put(`/tari/tariffe/${id}`, data),
+  copiaAnno:(data) => api.post('/tari/tariffe/copia-anno', data),
+};
+
+// ── TARI – Utenze ─────────────────────────────────────────────────────────
+export const utenzeTariAPI = {
+  list:            (params) => api.get('/tari/utenze', { params }),
+  getOne:          (id) => api.get(`/tari/utenze/${id}`),
+  create:          (data) => api.post('/tari/utenze', data),
+  update:          (id, data) => api.put(`/tari/utenze/${id}`, data),
+  annulla:         (id, data) => api.patch(`/tari/utenze/${id}/annulla`, data),
+  cambiaStato:     (id, data) => api.patch(`/tari/utenze/${id}/stato`, data),
+  perContribuente: (params) => api.get('/tari/utenze/per-contribuente', { params }),
+};
+
+// ── TARI – Dichiarazioni ──────────────────────────────────────────────────
+export const dichiarazioniTariAPI = {
+  list:       (params) => api.get('/tari/dichiarazioni', { params }),
+  getOne:     (id) => api.get(`/tari/dichiarazioni/${id}`),
+  create:     (data) => api.post('/tari/dichiarazioni', data),
+  update:     (id, data) => api.put(`/tari/dichiarazioni/${id}`, data),
+  annulla:    (id, data) => api.patch(`/tari/dichiarazioni/${id}/annulla`, data),
+  cambiaStato:(id, data) => api.patch(`/tari/dichiarazioni/${id}/stato`, data),
+  calcola:    (id) => api.post(`/tari/dichiarazioni/${id}/calcola`),
+  stampa:     (id) => api.get(`/tari/dichiarazioni/${id}/stampa`, { responseType: 'blob' }),
+};
+
+// ── TARI – Versamenti ─────────────────────────────────────────────────────
+export const versamenti_tariAPI = {
+  list:    (params) => api.get('/tari/versamenti', { params }),
+  getOne:  (id) => api.get(`/tari/versamenti/${id}`),
+  create:  (data) => api.post('/tari/versamenti', data),
+  update:  (id, data) => api.put(`/tari/versamenti/${id}`, data),
+  annulla: (id, data) => api.patch(`/tari/versamenti/${id}/annulla`, data),
+  estratto:(params) => api.get('/tari/versamenti/estratto', { params }),
+};
+
 // ── Dashboard ─────────────────────────────────────────────────────────────
 export const dashboardAPI = {
   summary:              (params) => api.get('/dashboard/summary', { params }),

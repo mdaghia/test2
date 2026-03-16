@@ -49,6 +49,27 @@ export const TIPI_ATTO = {
   diniego_rimborso:           'Diniego Rimborso',
 };
 
+export const STATI_TARI = {
+  bozza:         { label: 'Bozza',         color: '#94a3b8' },
+  presentata:    { label: 'Presentata',    color: '#3b82f6' },
+  in_lavorazione:{ label: 'In Lavorazione',color: '#f59e0b' },
+  definita:      { label: 'Definita',      color: '#22c55e' },
+  rettificata:   { label: 'Rettificata',   color: '#8b5cf6' },
+  annullata:     { label: 'Annullata',     color: '#ef4444' },
+};
+
+export const STATI_UTENZA_TARI = {
+  attiva:    { label: 'Attiva',    color: '#22c55e' },
+  cessata:   { label: 'Cessata',   color: '#94a3b8' },
+  sospesa:   { label: 'Sospesa',   color: '#f59e0b' },
+  annullata: { label: 'Annullata', color: '#ef4444' },
+};
+
+export const CATEGORIE_DOM_LABEL = {
+  '1': '1 componente', '2': '2 componenti', '3': '3 componenti',
+  '4': '4 componenti', '5': '5 componenti', '6': '6+ componenti',
+};
+
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

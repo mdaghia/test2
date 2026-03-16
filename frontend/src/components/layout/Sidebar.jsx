@@ -6,10 +6,15 @@ const NAV = [
   { to: '/contribuenti',   icon: '👤', label: 'Contribuenti' },
   { to: '/immobili',       icon: '🏠', label: 'Immobili' },
   { to: '/dichiarazioni',  icon: '📋', label: 'Dichiarazioni IMU' },
-  { to: '/versamenti',     icon: '💰', label: 'Versamenti' },
+  { to: '/versamenti',     icon: '💰', label: 'Versamenti IMU' },
   { to: '/atti',           icon: '📄', label: 'Atti/Provvedimenti' },
   { to: '/elaborazioni',   icon: '⚙️',  label: 'Elaborazioni Massive' },
-  { to: '/configurazione', icon: '🔧', label: 'Configurazione' },
+  { to: '/configurazione', icon: '🔧', label: 'Aliquote IMU' },
+  null, // separator
+  { to: '/tari/utenze',        icon: '🗑', label: 'Utenze TARI' },
+  { to: '/tari/dichiarazioni', icon: '📋', label: 'Dichiarazioni TARI' },
+  { to: '/tari/versamenti',    icon: '💳', label: 'Versamenti TARI' },
+  { to: '/tari/configurazione',icon: '⚙️',  label: 'Tariffe TARI' },
 ];
 
 const style = {
@@ -43,12 +48,13 @@ export default function Sidebar({ open }) {
         {open ? '🏛 Tributi Comunali' : '🏛'}
       </div>
       <nav style={style.nav}>
-        {NAV.map(n => (
-          <NavLink key={n.to} to={n.to} end={n.to === '/'} style={({ isActive }) => style.link(isActive)}>
-            <span style={{ fontSize: '1.1rem' }}>{n.icon}</span>
-            {open && <span>{n.label}</span>}
-          </NavLink>
-        ))}
+        {NAV.map((n, i) => n === null
+          ? open && <div key={`sep-${i}`} style={{ margin: '.5rem 1rem', borderTop: '1px solid #334155', fontSize: '.65rem', color: '#475569', paddingTop: '.5rem', letterSpacing: '.08em', textTransform: 'uppercase' }}>TARI</div>
+          : <NavLink key={n.to} to={n.to} end={n.to === '/'} style={({ isActive }) => style.link(isActive)}>
+              <span style={{ fontSize: '1.1rem' }}>{n.icon}</span>
+              {open && <span>{n.label}</span>}
+            </NavLink>
+        )}
       </nav>
       {open && <div style={{ padding: '.75rem 1rem', fontSize: '.7rem', color: '#475569', borderTop: '1px solid #334155' }}>
         Sistema Gestione Tributaria v1.0

@@ -6,6 +6,7 @@ require('dotenv').config({ path: '../.env' });
 const mongoose = require('mongoose');
 const Utente = require('../models/Utente');
 const AliquotaIMU = require('../models/AliquotaIMU');
+const TariffaTARI = require('../models/TariffaTARI');
 
 const COMUNE = process.env.COMUNE_NOME || 'Comune di Esempio';
 const ANNO = 2024;
@@ -40,6 +41,41 @@ async function seed() {
     { anno: ANNO, comune: COMUNE, tipoImmobile: 'altro',                             aliquota: 8.6,  detrazione: 0,   esente: false, descrizione: 'Altri fabbricati – 8,6‰' },
   ]);
   console.log('✅ Aliquote IMU 2024 create');
+
+  // ── Tariffe TARI 2024 ─────────────────────────────────────────────────────
+  await TariffaTARI.deleteMany({ anno: ANNO, comune: COMUNE });
+
+  // Utenze DOMESTICHE – DPR 158/1999 Allegato 1
+  // Ka=1 (coeff. quota fissa), Kb=1 (coeff. quota variabile)
+  // tariffaFissa: €/mq/anno, tariffaVariabile: €/componente/anno
+  await TariffaTARI.create([
+    { anno: ANNO, comune: COMUNE, tipo: 'domestica', categoria: '1', descrizione: 'Utenza domestica – 1 componente',  Ka: 1, Kb: 1, tariffaFissa: 1.20, tariffaVariabile: 80.00 },
+    { anno: ANNO, comune: COMUNE, tipo: 'domestica', categoria: '2', descrizione: 'Utenza domestica – 2 componenti', Ka: 1, Kb: 1, tariffaFissa: 1.40, tariffaVariabile: 55.00 },
+    { anno: ANNO, comune: COMUNE, tipo: 'domestica', categoria: '3', descrizione: 'Utenza domestica – 3 componenti', Ka: 1, Kb: 1, tariffaFissa: 1.55, tariffaVariabile: 48.00 },
+    { anno: ANNO, comune: COMUNE, tipo: 'domestica', categoria: '4', descrizione: 'Utenza domestica – 4 componenti', Ka: 1, Kb: 1, tariffaFissa: 1.70, tariffaVariabile: 43.00 },
+    { anno: ANNO, comune: COMUNE, tipo: 'domestica', categoria: '5', descrizione: 'Utenza domestica – 5 componenti', Ka: 1, Kb: 1, tariffaFissa: 1.85, tariffaVariabile: 39.00 },
+    { anno: ANNO, comune: COMUNE, tipo: 'domestica', categoria: '6', descrizione: 'Utenza domestica – 6+ componenti',Ka: 1, Kb: 1, tariffaFissa: 2.00, tariffaVariabile: 36.00 },
+  ]);
+  console.log('✅ Tariffe TARI 2024 domestiche create');
+
+  // Utenze NON DOMESTICHE – DPR 158/1999 Allegato 2 (selezione categorie principali)
+  // Kc=1 (quota fissa), Kd=1 (quota variabile)
+  // tariffaFissa: €/mq/anno, tariffaVariabile: €/mq/anno
+  await TariffaTARI.create([
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '1',  descrizione: 'Musei, biblioteche, scuole, associazioni, luoghi di culto', Kc: 1, Kd: 1, tariffaFissa: 0.60, tariffaVariabile: 0.30 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '2',  descrizione: 'Cinematografi e teatri',                              Kc: 1, Kd: 1, tariffaFissa: 0.80, tariffaVariabile: 0.40 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '3',  descrizione: 'Autorimesse e magazzini senza vendita diretta',        Kc: 1, Kd: 1, tariffaFissa: 0.90, tariffaVariabile: 0.50 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '7',  descrizione: 'Alberghi con ristorante',                             Kc: 1, Kd: 1, tariffaFissa: 2.20, tariffaVariabile: 2.80 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '8',  descrizione: 'Alberghi senza ristorante',                           Kc: 1, Kd: 1, tariffaFissa: 1.80, tariffaVariabile: 2.20 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '11', descrizione: 'Agenzie, studi professionali, uffici, agenzie viaggi', Kc: 1, Kd: 1, tariffaFissa: 1.40, tariffaVariabile: 1.20 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '13', descrizione: 'Negozi abbigliamento, calzature, librerie, ferramenta',Kc: 1, Kd: 1, tariffaFissa: 1.60, tariffaVariabile: 1.80 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '18', descrizione: 'Bar, caffè, pasticcerie',                             Kc: 1, Kd: 1, tariffaFissa: 2.80, tariffaVariabile: 4.50 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '19', descrizione: 'Ristoranti, trattorie, osterie, pizzerie, pub',        Kc: 1, Kd: 1, tariffaFissa: 3.20, tariffaVariabile: 6.00 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '23', descrizione: 'Industrie, capannoni produzione, ingrosso',            Kc: 1, Kd: 1, tariffaFissa: 1.10, tariffaVariabile: 0.90 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '24', descrizione: 'Supermercati, macellerie, salumerie, alimentari',      Kc: 1, Kd: 1, tariffaFissa: 2.40, tariffaVariabile: 3.80 },
+    { anno: ANNO, comune: COMUNE, tipo: 'non_domestica', categoria: '30', descrizione: 'Studi medici, dentistici, veterinari, laboratori analisi', Kc: 1, Kd: 1, tariffaFissa: 1.70, tariffaVariabile: 1.50 },
+  ]);
+  console.log('✅ Tariffe TARI 2024 non domestiche create');
 
   await mongoose.disconnect();
   console.log('🎉 Seed completato!');

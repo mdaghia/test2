@@ -2,6 +2,7 @@ const { Kafka, logLevel } = require('kafkajs');
 const logger = require('../utils/logger');
 
 const TOPICS = {
+  // ── IMU ──────────────────────────────────────────────────────────────────
   DICHIARAZIONI_CREATED:    'imu.dichiarazioni.created',
   CALCOLO_RICHIESTO:        'imu.calcolo.richiesto',
   CALCOLO_COMPLETATO:       'imu.calcolo.completato',
@@ -10,6 +11,11 @@ const TOPICS = {
   STAMPE_MASSIVE_RESULT:    'stampe.massive.risultati',
   VERSAMENTI_RICONCILIA:    'versamenti.riconciliazione',
   NOTIFICHE_CONTRIBUENTI:   'notifiche.contribuenti',
+  // ── TARI ─────────────────────────────────────────────────────────────────
+  TARI_DICHIARAZIONI_CREATED: 'tari.dichiarazioni.created',
+  TARI_CALCOLO_RICHIESTO:     'tari.calcolo.richiesto',
+  TARI_CALCOLO_COMPLETATO:    'tari.calcolo.completato',
+  TARI_STAMPE_MASSIVE:        'tari.stampe.massive',
 };
 
 let kafka;

@@ -12,7 +12,7 @@ const { initKafka } = require('./config/kafka');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
-// Routes
+// Routes – IMU
 const authRoutes = require('./routes/auth');
 const contribuentiRoutes = require('./routes/contribuenti');
 const immobiliRoutes = require('./routes/immobili');
@@ -23,6 +23,11 @@ const attiRoutes = require('./routes/atti');
 const stampeRoutes = require('./routes/stampe');
 const elaborazioniRoutes = require('./routes/elaborazioni');
 const dashboardRoutes = require('./routes/dashboard');
+// Routes – TARI
+const tariffeTariRoutes = require('./routes/tariffeTari');
+const utenzeTariRoutes = require('./routes/utenzeTari');
+const dichiarazioniTariRoutes = require('./routes/dichiarazioniTari');
+const versamenti_tariRoutes = require('./routes/versamenti_tari');
 
 const app = express();
 
@@ -52,6 +57,11 @@ api.use('/atti', attiRoutes);
 api.use('/stampe', stampeRoutes);
 api.use('/elaborazioni', elaborazioniRoutes);
 api.use('/dashboard', dashboardRoutes);
+// TARI
+api.use('/tari/tariffe', tariffeTariRoutes);
+api.use('/tari/utenze', utenzeTariRoutes);
+api.use('/tari/dichiarazioni', dichiarazioniTariRoutes);
+api.use('/tari/versamenti', versamenti_tariRoutes);
 
 app.use('/api/v1', api);
 

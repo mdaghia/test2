@@ -256,8 +256,116 @@ async function stampaMassiva(tipoStampa, parametri, jobId) {
   return { fileOutput: archivio, count };
 }
 
+// ── Stampa Dichiarazione TARI ──────────────────────────────────────────────
+async function stampaDichiarazioneTARI(dichiarazione) {
+  const filename = `dichiarazione_tari_${dichiarazione.numeroDichiarazione}_${uuidv4().slice(0, 8)}.pdf`;
+  const { doc, filePath, stream } = createPDF(filename);
+
+  return new Promise((resolve, reject) => {
+    stream.on('finish', () => resolve(filePath));
+    stream.on('error', reject);
+
+    try {
+      intestazioneComune(doc);
+
+      doc.fontSize(14).font('Helvetica-Bold')
+         .text('DICHIARAZIONE TARI', { align: 'center' })
+         .font('Helvetica').fontSize(9)
+         .text(`N° ${dichiarazione.numeroDichiarazione}   Anno: ${dichiarazione.anno}`, { align: 'center' })
+         .moveDown(0.5)
+         .fontSize(7).opacity(0.7)
+         .text('Tassa sui Rifiuti – L.147/2013 art.1 cc.639-704 – DPR 158/1999 (metodo normalizzato)', { align: 'center' })
+         .opacity(1).moveDown(1);
+
+      // Dati contribuente
+      const contrib = dichiarazione.contribuente;
+      const denom = contrib?.tipo === 'persona_fisica'
+        ? `${contrib.cognome || ''} ${contrib.nome || ''}`.trim()
+        : contrib?.ragioneSociale || '—';
+
+      doc.fontSize(10).font('Helvetica-Bold').text('DATI CONTRIBUENTE').moveDown(0.3);
+      doc.font('Helvetica').fontSize(9)
+         .text(`Denominazione: ${denom}`)
+         .text(`Codice Fiscale: ${contrib?.codiceFiscale || '—'}`)
+         .text(`Residenza: ${contrib?.residenza?.via || '—'}, ${contrib?.residenza?.comune || '—'}`)
+         .moveDown(0.8);
+
+      // Tabella utenze
+      doc.fontSize(10).font('Helvetica-Bold').text('DETTAGLIO UTENZE').moveDown(0.3);
+
+      const colX = [50, 120, 175, 235, 290, 360, 430, 510];
+      const headers = ['Tipo', 'Cat.', 'Sup. mq', 'Comp.', 'Mesi', 'Q.Fissa', 'Q.Var.', 'Importo'];
+      doc.fontSize(8).font('Helvetica-Bold');
+      headers.forEach((h, i) => doc.text(h, colX[i], doc.y, { width: colX[i + 1] ? colX[i + 1] - colX[i] - 4 : 80 }));
+      doc.moveTo(50, doc.y + 2).lineTo(545, doc.y + 2).stroke().moveDown(0.2);
+
+      doc.font('Helvetica').fontSize(7.5);
+      for (const riga of (dichiarazione.righe || [])) {
+        const y = doc.y;
+        doc.text(riga.tipo || '—', colX[0], y)
+           .text(riga.categoriaTARI || '—', colX[1], y)
+           .text(String(riga.superficie || 0), colX[2], y)
+           .text(String(riga.componentiNucleo || '—'), colX[3], y)
+           .text(String(riga.mesiOccupazione || 12), colX[4], y)
+           .text(formatEuro(riga.quotaFissa), colX[5], y)
+           .text(formatEuro(riga.quotaVariabile), colX[6], y)
+           .text(formatEuro(riga.importoCalcolato), colX[7], y);
+
+        // Riduzioni applicate
+        if (riga.riduzioniApplicate?.length) {
+          doc.moveDown(0.2);
+          for (const rid of riga.riduzioniApplicate) {
+            doc.fontSize(7).fillColor('#6b7280')
+               .text(`   ↳ Riduzione ${rid.tipo} (${rid.perc}%): -${formatEuro(rid.importo)}`, colX[0])
+               .fillColor('#000000');
+          }
+        }
+        doc.moveDown(0.3);
+      }
+
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke().moveDown(0.5);
+
+      // Totale e rate
+      doc.font('Helvetica-Bold').fontSize(10)
+         .text(`TOTALE ANNUO: ${formatEuro(dichiarazione.totaleAnno)}`, { align: 'right' })
+         .moveDown(0.5);
+
+      doc.font('Helvetica').fontSize(9);
+      const rate = [
+        ['1ª Rata (40%) – scad. 30/04', dichiarazione.importoPrimaRata,   dichiarazione.scadenzaPrimaRata],
+        ['2ª Rata (30%) – scad. 30/06', dichiarazione.importoSecondaRata, dichiarazione.scadenzaSecondaRata],
+        ['Saldo         – scad. 30/11', dichiarazione.importoSaldo,        dichiarazione.scadenzaSaldo],
+      ];
+      for (const [label, importo, scad] of rate) {
+        doc.text(`${label}: ${formatEuro(importo)}  (scadenza ${formatData(scad)})`, { align: 'right' });
+      }
+      doc.moveDown(1);
+
+      // Modalità pagamento
+      doc.fontSize(8).font('Helvetica')
+         .text('Pagamento tramite modello F24 con codice tributo 3944 (tributo), 3945 (interessi), 3946 (sanzioni)')
+         .text('oppure tramite PagoPA sul portale del Comune.')
+         .moveDown(1);
+
+      // Stato
+      doc.fontSize(8)
+         .text(`Stato: ${dichiarazione.stato?.toUpperCase()}   Data presentazione: ${formatData(dichiarazione.dataPresentazione)}`)
+         .text(`Operatore: ${dichiarazione.operatore?.nome || ''} ${dichiarazione.operatore?.cognome || ''}`)
+         .moveDown(1);
+
+      doc.text('Firma del contribuente ______________________   Firma dell\'operatore ______________________', { align: 'center' });
+
+      footerPagina(doc, 1);
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 module.exports = {
   stampaDichiarazioneIMU,
   stampaAttoProvvedimento,
   stampaMassiva,
+  stampaDichiarazioneTARI,
 };

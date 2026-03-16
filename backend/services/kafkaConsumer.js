@@ -9,9 +9,11 @@
 const { getKafka, TOPICS } = require('../config/kafka');
 const logger = require('../utils/logger');
 const DichiarazioneIMU = require('../models/DichiarazioneIMU');
+const DichiarazioneTARI = require('../models/DichiarazioneTARI');
 const AttoProvvedimento = require('../models/AttoProvvedimento');
 const ElaborazioneMassiva = require('../models/ElaborazioneMassiva');
 const { calcolaDichiarazioneIMU } = require('./calcoloIMU');
+const { calcolaDichiarazioneTARI } = require('./calcoloTARES');
 const stampaService = require('./stampaService');
 
 const GROUP_ID = 'tax-management-consumers';
@@ -25,10 +27,14 @@ async function startConsumers() {
 
   await consumer.subscribe({
     topics: [
+      // IMU
       TOPICS.CALCOLO_RICHIESTO,
       TOPICS.ATTI_EMISSIONE,
       TOPICS.STAMPE_MASSIVE,
       TOPICS.VERSAMENTI_RICONCILIA,
+      // TARI
+      TOPICS.TARI_CALCOLO_RICHIESTO,
+      TOPICS.TARI_STAMPE_MASSIVE,
     ],
     fromBeginning: false,
   });
@@ -40,6 +46,7 @@ async function startConsumers() {
         logger.debug(`Kafka ← [${topic}] key=${message.key?.toString()}`);
 
         switch (topic) {
+          // IMU
           case TOPICS.CALCOLO_RICHIESTO:
             await handleCalcoloMassivo(payload);
             break;
@@ -51,6 +58,13 @@ async function startConsumers() {
             break;
           case TOPICS.VERSAMENTI_RICONCILIA:
             await handleRiconciliazioneVersamento(payload);
+            break;
+          // TARI
+          case TOPICS.TARI_CALCOLO_RICHIESTO:
+            await handleCalcoloMassivoTARI(payload);
+            break;
+          case TOPICS.TARI_STAMPE_MASSIVE:
+            await handleStampeMassiveTARI(payload);
             break;
           default:
             logger.warn(`Topic non gestito: ${topic}`);
@@ -199,6 +213,94 @@ async function handleStampeMassive({ jobId, tipoStampa, parametri }) {
 async function handleRiconciliazioneVersamento({ versamentoId, dati }) {
   logger.info(`Riconciliazione versamento ${versamentoId}`);
   // Logica di riconciliazione con F24 / PagoPA
+}
+
+// ── TARI Handlers ──────────────────────────────────────────────────────────
+
+async function handleCalcoloMassivoTARI({ jobId, parametri }) {
+  const elab = await ElaborazioneMassiva.findById(jobId);
+  if (!elab) return logger.warn(`Elaborazione TARI ${jobId} non trovata`);
+
+  await elab.updateOne({ stato: 'in_elaborazione', dataInizio: new Date() });
+  const start = Date.now();
+
+  try {
+    const query = { anno: parametri.annoImposta, stato: { $in: ['presentata', 'in_lavorazione'] } };
+    if (parametri.contribuenti?.length) query.contribuente = { $in: parametri.contribuenti };
+
+    const dichiarazioni = await DichiarazioneTARI.find(query).populate('righe.utenza');
+    await elab.updateOne({ totaleRecord: dichiarazioni.length });
+
+    const risultati = [];
+    const errori = [];
+
+    for (const dich of dichiarazioni) {
+      try {
+        const comune = parametri.comune || process.env.COMUNE_NOME || 'Comune';
+        const calc = await calcolaDichiarazioneTARI(dich, comune, dich.anno);
+        await DichiarazioneTARI.findByIdAndUpdate(dich._id, {
+          righe:               calc.righe,
+          totaleAnno:          calc.totaleAnno,
+          importoPrimaRata:    calc.importoPrimaRata,
+          scadenzaPrimaRata:   calc.scadenzaPrimaRata,
+          importoSecondaRata:  calc.importoSecondaRata,
+          scadenzaSecondaRata: calc.scadenzaSecondaRata,
+          importoSaldo:        calc.importoSaldo,
+          scadenzaSaldo:       calc.scadenzaSaldo,
+          stato: 'in_lavorazione',
+        });
+        risultati.push({ rifId: dich._id, stato: 'ok' });
+        await elab.updateOne({ $inc: { recordElaborati: 1 } });
+      } catch (err) {
+        errori.push({ rifId: dich._id, errore: err.message });
+        await elab.updateOne({ $inc: { recordErrore: 1 } });
+      }
+    }
+
+    const statoFinale = errori.length === 0 ? 'completata' : 'completata_con_errori';
+    await elab.updateOne({
+      stato: statoFinale,
+      dataCompletamento: new Date(),
+      durataMsec: Date.now() - start,
+      risultati, errori,
+    });
+    logger.info(`Calcolo massivo TARI ${jobId}: ${risultati.length} OK, ${errori.length} errori`);
+  } catch (err) {
+    await elab.updateOne({ stato: 'fallita', errori: [{ errore: err.message }] });
+    throw err;
+  }
+}
+
+async function handleStampeMassiveTARI({ jobId, parametri }) {
+  const elab = await ElaborazioneMassiva.findById(jobId);
+  if (!elab) return;
+
+  await elab.updateOne({ stato: 'in_elaborazione', dataInizio: new Date() });
+  const start = Date.now();
+
+  try {
+    const query = { anno: parametri.annoImposta };
+    if (parametri.stati?.length) query.stato = { $in: parametri.stati };
+    const dichiarazioni = await DichiarazioneTARI.find(query)
+      .populate('contribuente').populate('righe.utenza').populate('righe.tariffaApplicata');
+
+    let count = 0;
+    for (const dich of dichiarazioni) {
+      await stampaService.stampaDichiarazioneTARI(dich);
+      count++;
+    }
+
+    await elab.updateOne({
+      stato: 'completata',
+      dataCompletamento: new Date(),
+      durataMsec: Date.now() - start,
+      totaleRecord: count,
+      recordElaborati: count,
+    });
+  } catch (err) {
+    await elab.updateOne({ stato: 'fallita', errori: [{ errore: err.message }] });
+    throw err;
+  }
 }
 
 async function stopConsumers() {
