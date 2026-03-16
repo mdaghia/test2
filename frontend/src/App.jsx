@@ -18,6 +18,7 @@ import DichiarazioniTARI from './pages/DichiarazioniTARI';
 import VersamentiTARI from './pages/VersamentiTARI';
 import ConfigurazioneTARI from './pages/ConfigurazioneTARI';
 import GestioneDocumenti from './pages/GestioneDocumenti';
+import Report from './pages/Report';
 
 function RequireAuth({ children }) {
   const { token } = useSelector(s => s.auth);
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="tari/dichiarazioni" element={<DichiarazioniTARI />} />
           <Route path="tari/versamenti" element={<VersamentiTARI />} />
           <Route path="tari/configurazione" element={<ConfigurazioneTARI />} />
+          <Route path="report" element={<Report />} />
           <Route path="rag/documenti" element={<GestioneDocumenti />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

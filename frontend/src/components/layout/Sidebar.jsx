@@ -15,6 +15,8 @@ const NAV = [
   { to: '/tari/dichiarazioni', icon: '📋', label: 'Dichiarazioni TARI' },
   { to: '/tari/versamenti',    icon: '💳', label: 'Versamenti TARI' },
   { to: '/tari/configurazione',icon: '⚙️',  label: 'Tariffe TARI' },
+  { sep: 'Report' },
+  { to: '/report',             icon: '📈', label: 'Reportistica' },
   { sep: 'Assistente IA' },
   { to: '/rag/documenti',      icon: '📚', label: 'Knowledge Base' },
 ];
