@@ -104,6 +104,23 @@ export const elaborazioniAPI = {
   scaricaOutput:     (id) => api.get(`/elaborazioni/${id}/output`, { responseType: 'blob' }),
 };
 
+// ── RAG – Documenti normativi ─────────────────────────────────────────────
+export const ragAPI = {
+  list:   (params) => api.get('/rag', { params }),
+  getOne: (id) => api.get(`/rag/${id}`),
+  upload: (formData) => api.post('/rag/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  remove: (id) => api.delete(`/rag/${id}`),
+};
+
+// ── Chat – Sessioni & messaggi ────────────────────────────────────────────
+export const chatAPI = {
+  listSessions:   () => api.get('/chat/sessioni'),
+  createSession:  (data) => api.post('/chat/sessioni', data),
+  getSession:     (id) => api.get(`/chat/sessioni/${id}`),
+  archiveSession: (id) => api.patch(`/chat/sessioni/${id}/archivia`),
+  // sendMessage uses fetch directly in ChatWidget for SSE streaming
+};
+
 // ── TARI – Tariffe ────────────────────────────────────────────────────────
 export const tariffeTariAPI = {
   list:     (params) => api.get('/tari/tariffe', { params }),

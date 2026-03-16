@@ -10,11 +10,13 @@ const NAV = [
   { to: '/atti',           icon: '📄', label: 'Atti/Provvedimenti' },
   { to: '/elaborazioni',   icon: '⚙️',  label: 'Elaborazioni Massive' },
   { to: '/configurazione', icon: '🔧', label: 'Aliquote IMU' },
-  null, // separator
+  { sep: 'TARI' },
   { to: '/tari/utenze',        icon: '🗑', label: 'Utenze TARI' },
   { to: '/tari/dichiarazioni', icon: '📋', label: 'Dichiarazioni TARI' },
   { to: '/tari/versamenti',    icon: '💳', label: 'Versamenti TARI' },
   { to: '/tari/configurazione',icon: '⚙️',  label: 'Tariffe TARI' },
+  { sep: 'Assistente IA' },
+  { to: '/rag/documenti',      icon: '📚', label: 'Knowledge Base' },
 ];
 
 const style = {
@@ -48,8 +50,8 @@ export default function Sidebar({ open }) {
         {open ? '🏛 Tributi Comunali' : '🏛'}
       </div>
       <nav style={style.nav}>
-        {NAV.map((n, i) => n === null
-          ? open && <div key={`sep-${i}`} style={{ margin: '.5rem 1rem', borderTop: '1px solid #334155', fontSize: '.65rem', color: '#475569', paddingTop: '.5rem', letterSpacing: '.08em', textTransform: 'uppercase' }}>TARI</div>
+        {NAV.map((n, i) => n.sep !== undefined
+          ? open && <div key={`sep-${i}`} style={{ margin: '.5rem 1rem', borderTop: '1px solid #334155', fontSize: '.65rem', color: '#64748b', paddingTop: '.5rem', letterSpacing: '.08em', textTransform: 'uppercase' }}>{n.sep}</div>
           : <NavLink key={n.to} to={n.to} end={n.to === '/'} style={({ isActive }) => style.link(isActive)}>
               <span style={{ fontSize: '1.1rem' }}>{n.icon}</span>
               {open && <span>{n.label}</span>}

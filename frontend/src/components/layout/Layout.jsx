@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ChatWidget from '../ChatWidget';
 
 export default function Layout() {
   const dispatch = useDispatch();
@@ -18,6 +19,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 }
