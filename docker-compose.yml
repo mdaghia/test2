@@ -121,6 +121,72 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Sync Service (ACSOR Oracle → MongoDB) ─────────────────────────────────
+  sync-service:
+    build:
+      context: ./sync-service
+      dockerfile: Dockerfile
+    container_name: tax_sync
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Oracle ACSOR
+      ORACLE_HOST: ${ORACLE_HOST}
+      ORACLE_PORT: ${ORACLE_PORT:-1521}
+      ORACLE_SERVICE: ${ORACLE_SERVICE}
+      ORACLE_USER: ${ORACLE_USER}
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
+      ORACLE_SCHEMA: ${ORACLE_SCHEMA:-ACSOR}
+      # Backend API
+      BACKEND_URL: http://backend:5000/api/v1
+      SYNC_API_KEY: ${SYNC_API_KEY}
+      # Batch settings
+      BATCH_SIZE: ${SYNC_BATCH_SIZE:-200}
+    volumes:
+      - sync_logs:/app/logs
+    ports:
+      - "4000:4000"
+    networks:
+      - tax_net
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health',r=>process.exit(r.statusCode===200?0:1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  # ── n8n Orchestratore ──────────────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:1.44.1
+    container_name: tax_n8n
+    restart: unless-stopped
+    depends_on:
+      sync-service:
+        condition: service_healthy
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-n8nsecret}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: Europe/Rome
+      TZ: Europe/Rome
+      # Allow n8n to call internal services
+      N8N_ALLOW_IFRAME_IN_CALLBACK: "true"
+      NODE_FUNCTION_ALLOW_EXTERNAL: axios,dayjs
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:ro
+    ports:
+      - "5678:5678"
+    networks:
+      - tax_net
+
   # ── Backend API ────────────────────────────────────────────────────────────
   backend:
     build:
@@ -177,6 +243,8 @@ volumes:
   zookeeper_log:
   kafka_data:
   qdrant_data:
+  n8n_data:
+  sync_logs:
 
 networks:
   tax_net:

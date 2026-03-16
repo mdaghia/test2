@@ -1,0 +1,223 @@
+{
+  "name": "ACSOR → MongoDB – Delta Sync Notturno",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 2 * * *" }]
+        }
+      },
+      "id": "cron-2am",
+      "name": "Ogni notte alle 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calcola finestra temporale: ultime 25 ore (overlap per sicurezza)\nconst since = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();\nreturn [{ json: { since, triggeredAt: new Date().toISOString() }}];"
+      },
+      "id": "calc-window",
+      "name": "Calcola Finestra Delta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://sync-service:4000/oracle/ping",
+        "options": { "timeout": 10000 }
+      },
+      "id": "oracle-ping",
+      "name": "Verifica Oracle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "connected",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "check-oracle",
+      "name": "Oracle OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://sync-service:4000/sync/delta",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [{ "name": "since", "value": "={{ $('Calcola Finestra Delta').item.json.since }}" }]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "start-delta",
+      "name": "Avvia Delta Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "wait-10s",
+      "name": "Attendi 10s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1320, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://sync-service:4000/sync/status"
+      },
+      "id": "poll-status",
+      "name": "Stato Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1520, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.currentJob.status }}",
+              "rightValue": "running",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "still-running",
+      "name": "Ancora in corso?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1720, 220]
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "wait-60s",
+      "name": "Attendi 60s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1920, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const job    = $input.first().json.currentJob;\nconst result = $input.first().json.lastResult;\nconst since  = $('Calcola Finestra Delta').first().json.since;\n\nconst totRecords  = result?.results?.reduce((s, r) => s + (r.totaleRecord || 0), 0) || 0;\nconst totUpserted = result?.results?.reduce((s, r) => s + (r.upserted || 0), 0) || 0;\nconst totModified = result?.results?.reduce((s, r) => s + (r.modified  || 0), 0) || 0;\nconst totErrors   = result?.results?.reduce((s, r) => s + (r.errors    || 0), 0) || 0;\n\nconsole.log(\n  `[DELTA SYNC] since=${since} | record=${totRecords} | upserted=${totUpserted} | modified=${totModified} | errors=${totErrors} | elapsed=${result?.elapsedSeconds}s`\n);\n\nreturn [{ json: {\n  success: job?.status === 'done',\n  since,\n  totRecords,\n  totUpserted,\n  totModified,\n  totErrors,\n  elapsedSeconds: result?.elapsedSeconds,\n  completedAt: result?.completedAt,\n  details: result?.results,\n}}];"
+      },
+      "id": "report",
+      "name": "Riepilogo Delta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.totErrors }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        }
+      },
+      "id": "check-errors",
+      "name": "Ci sono errori?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Qui puoi aggiungere notifica email/Slack/webhook\nconst d = $input.first().json;\nconsole.error('[DELTA SYNC] Errori durante sincronizzazione:', JSON.stringify(d));\nreturn $input.all();"
+      },
+      "id": "notify-error",
+      "name": "Notifica Errori",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('[DELTA SYNC] Completato senza errori.');\nreturn $input.all();"
+      },
+      "id": "log-ok",
+      "name": "OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://sync-service:4000/sync/status",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [{ "name": "error", "value": "Oracle non raggiungibile" }]
+        },
+        "options": {}
+      },
+      "id": "oracle-down",
+      "name": "Log Oracle Down",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 420]
+    }
+  ],
+  "connections": {
+    "Ogni notte alle 02:00":   { "main": [[{ "node": "Calcola Finestra Delta",  "type": "main", "index": 0 }]] },
+    "Calcola Finestra Delta":  { "main": [[{ "node": "Verifica Oracle",         "type": "main", "index": 0 }]] },
+    "Verifica Oracle":         { "main": [[{ "node": "Oracle OK?",              "type": "main", "index": 0 }]] },
+    "Oracle OK?": {
+      "main": [
+        [{ "node": "Avvia Delta Sync",  "type": "main", "index": 0 }],
+        [{ "node": "Log Oracle Down",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Avvia Delta Sync":  { "main": [[{ "node": "Attendi 10s",       "type": "main", "index": 0 }]] },
+    "Attendi 10s":       { "main": [[{ "node": "Stato Sync",        "type": "main", "index": 0 }]] },
+    "Stato Sync":        { "main": [[{ "node": "Ancora in corso?",  "type": "main", "index": 0 }]] },
+    "Ancora in corso?": {
+      "main": [
+        [{ "node": "Attendi 60s",    "type": "main", "index": 0 }],
+        [{ "node": "Riepilogo Delta","type": "main", "index": 0 }]
+      ]
+    },
+    "Attendi 60s":       { "main": [[{ "node": "Stato Sync",        "type": "main", "index": 0 }]] },
+    "Riepilogo Delta":   { "main": [[{ "node": "Ci sono errori?",   "type": "main", "index": 0 }]] },
+    "Ci sono errori?": {
+      "main": [
+        [{ "node": "Notifica Errori", "type": "main", "index": 0 }],
+        [{ "node": "OK",              "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "tags": [{ "name": "acsor-sync" }, { "name": "cron" }]
+}

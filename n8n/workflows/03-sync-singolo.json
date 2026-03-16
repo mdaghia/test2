@@ -1,0 +1,122 @@
+{
+  "name": "ACSOR → MongoDB – Sync Singolo (Contribuenti o Immobili)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Avvio Manuale",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "tipo",  "name": "tipo",  "value": "contribuenti", "type": "string",  "description": "contribuenti | immobili" },
+            { "id": "since", "name": "since", "value": "",             "type": "string",  "description": "ISO date string. Vuoto = full sync" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "params",
+      "name": "Parametri",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 300],
+      "notes": "Modifica 'tipo' (contribuenti | immobili) e 'since' (vuoto per full sync)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://sync-service:4000/sync/{{ $json.tipo }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.since ? JSON.stringify({ since: $json.since }) : '{}' }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "trigger-sync",
+      "name": "Avvia Sync Tipo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "wait",
+      "name": "Attendi 10s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://sync-service:4000/sync/status"
+      },
+      "id": "poll",
+      "name": "Stato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.currentJob.status }}",
+              "rightValue": "running",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "running",
+      "name": "In corso?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1280, 300]
+    },
+    {
+      "parameters": {
+        "amount": 20,
+        "unit": "seconds"
+      },
+      "id": "wait2",
+      "name": "Attendi 20s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1480, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json.lastResult;\nconsole.log('[SYNC SINGOLO]', JSON.stringify(r));\nreturn [{ json: r }];"
+      },
+      "id": "done",
+      "name": "Risultato",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1480, 380]
+    }
+  ],
+  "connections": {
+    "Avvio Manuale":  { "main": [[{ "node": "Parametri",      "type": "main", "index": 0 }]] },
+    "Parametri":      { "main": [[{ "node": "Avvia Sync Tipo","type": "main", "index": 0 }]] },
+    "Avvia Sync Tipo":{ "main": [[{ "node": "Attendi 10s",    "type": "main", "index": 0 }]] },
+    "Attendi 10s":    { "main": [[{ "node": "Stato",          "type": "main", "index": 0 }]] },
+    "Stato":          { "main": [[{ "node": "In corso?",      "type": "main", "index": 0 }]] },
+    "In corso?": {
+      "main": [
+        [{ "node": "Attendi 20s", "type": "main", "index": 0 }],
+        [{ "node": "Risultato",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Attendi 20s": { "main": [[{ "node": "Stato", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "acsor-sync" }]
+}

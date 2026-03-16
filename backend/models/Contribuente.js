@@ -40,6 +40,9 @@ const contribuenteSchema = new mongoose.Schema({
   residenza:      indirizzoSchema,
   domicilioFiscale: indirizzoSchema,
 
+  // Integrazione sistemi esterni
+  acsorId:  { type: String, sparse: true },   // COD_SOGGETTO da ACSOR
+
   // Gestionale
   stato:    { type: String, enum: ['attivo', 'cessato', 'annullato'], default: 'attivo' },
   note:     String,
@@ -49,6 +52,7 @@ const contribuenteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 contribuenteSchema.index({ codiceFiscale: 1 });
+contribuenteSchema.index({ acsorId: 1 }, { sparse: true });
 contribuenteSchema.index({ cognome: 'text', nome: 'text', ragioneSociale: 'text' });
 
 contribuenteSchema.virtual('denominazione').get(function() {

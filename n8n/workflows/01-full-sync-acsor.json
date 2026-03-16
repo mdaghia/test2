@@ -1,0 +1,161 @@
+{
+  "name": "ACSOR → MongoDB – Full Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Avvio Manuale",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://sync-service:4000/oracle/ping",
+        "options": { "timeout": 10000 }
+      },
+      "id": "oracle-ping",
+      "name": "Verifica Connessione Oracle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "connected",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "check-oracle",
+      "name": "Oracle OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://sync-service:4000/sync/full",
+        "options": { "timeout": 10000 }
+      },
+      "id": "start-full-sync",
+      "name": "Avvia Full Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait-5s",
+      "name": "Attendi 5s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1100, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://sync-service:4000/sync/status",
+        "options": {}
+      },
+      "id": "poll-status",
+      "name": "Controlla Stato Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1300, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.currentJob.status }}",
+              "rightValue": "running",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "still-running",
+      "name": "Ancora in corso?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1500, 220]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait-30s",
+      "name": "Attendi 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1700, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const job    = $input.first().json.currentJob;\nconst result = $input.first().json.lastResult;\nconst success = job?.status === 'done';\n\nconst summary = result?.results?.map(r =>\n  `${r.tipo}: ${r.totaleRecord} letti, ${r.upserted} inseriti, ${r.modified} aggiornati`\n).join('\\n') || 'Nessun dettaglio';\n\nreturn [{ json: {\n  success,\n  status: job?.status,\n  summary,\n  elapsedSeconds: result?.elapsedSeconds,\n  completedAt: result?.completedAt,\n  raw: result,\n}}];"
+      },
+      "id": "build-report",
+      "name": "Costruisci Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log su console n8n\nconst d = $input.first().json;\nconsole.log('[FULL SYNC] Completato:', JSON.stringify(d, null, 2));\nreturn $input.all();"
+      },
+      "id": "log-ok",
+      "name": "Log Completamento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.first().json;\nconsole.error('[FULL SYNC] Errore Oracle:', JSON.stringify(err));\nreturn [{ json: { error: 'Oracle non raggiungibile', details: err }}];"
+      },
+      "id": "oracle-error",
+      "name": "Errore Oracle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    }
+  ],
+  "connections": {
+    "Avvio Manuale":            { "main": [[{ "node": "Verifica Connessione Oracle", "type": "main", "index": 0 }]] },
+    "Verifica Connessione Oracle": { "main": [[{ "node": "Oracle OK?", "type": "main", "index": 0 }]] },
+    "Oracle OK?": {
+      "main": [
+        [{ "node": "Avvia Full Sync",  "type": "main", "index": 0 }],
+        [{ "node": "Errore Oracle",    "type": "main", "index": 0 }]
+      ]
+    },
+    "Avvia Full Sync":    { "main": [[{ "node": "Attendi 5s",            "type": "main", "index": 0 }]] },
+    "Attendi 5s":         { "main": [[{ "node": "Controlla Stato Sync",  "type": "main", "index": 0 }]] },
+    "Controlla Stato Sync": { "main": [[{ "node": "Ancora in corso?",    "type": "main", "index": 0 }]] },
+    "Ancora in corso?": {
+      "main": [
+        [{ "node": "Attendi 30s",      "type": "main", "index": 0 }],
+        [{ "node": "Costruisci Report","type": "main", "index": 0 }]
+      ]
+    },
+    "Attendi 30s":        { "main": [[{ "node": "Controlla Stato Sync",  "type": "main", "index": 0 }]] },
+    "Costruisci Report":  { "main": [[{ "node": "Log Completamento",     "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "acsor-sync" }]
+}

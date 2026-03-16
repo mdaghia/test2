@@ -28,6 +28,8 @@ const tariffeTariRoutes = require('./routes/tariffeTari');
 const utenzeTariRoutes = require('./routes/utenzeTari');
 const dichiarazioniTariRoutes = require('./routes/dichiarazioniTari');
 const versamenti_tariRoutes = require('./routes/versamenti_tari');
+// Routes – Sync ACSOR
+const syncRoutes = require('./routes/sync');
 // Routes – Reportistica
 const reportRoutes = require('./routes/report');
 // Routes – AI / RAG
@@ -67,6 +69,8 @@ api.use('/tari/tariffe', tariffeTariRoutes);
 api.use('/tari/utenze', utenzeTariRoutes);
 api.use('/tari/dichiarazioni', dichiarazioniTariRoutes);
 api.use('/tari/versamenti', versamenti_tariRoutes);
+// Sync ACSOR (service-to-service + UI read)
+api.use('/sync', syncRoutes);
 // Reportistica
 api.use('/report', reportRoutes);
 // AI / RAG
